@@ -10,6 +10,7 @@ from app.sponsorship import classify_sponsorship_with_llm
 import streamlit as st
 from app.config import get_llm
 from app.parser import extract_resume_text
+from app.chains import analyze_resume_job_match
 
 st.set_page_config(
     page_title="CareerPilot AI",
@@ -92,4 +93,52 @@ if st.button("Analyze Job Fit"):
                 )
 
                 st.header("Resume & Job Match Analysis")
-                st.write(response.content)
+                resume_text = extract_resume_text(resume_file)
+                if not resume_text:
+                    st.error("Could not extract text from resume")
+                    st.stop()
+                
+                # st.write(response)
+                st.subheader("Extracted Resume Preview")
+                st.text_area("Resume Text", resume_text[:2000], height=250)
+                analysis_result = analyze_resume_job_match(
+                resume_text=resume_text,
+                job_description=job_description,
+                company_name=company_name,
+                sponsorship_result=sponsorship_result
+                )
+                st.metric(
+    label="ATS Match Score",
+    value=f"{analysis_result['ats_match_score']}%"
+    )
+
+                st.subheader("Match Summary")
+                st.write(analysis_result["match_summary"])
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.subheader("Matching Skills")
+                    st.write(analysis_result["matching_skills"])
+
+                    st.subheader("Strong Resume Points")
+                    st.write(analysis_result["strong_resume_points"])
+
+                with col2:
+                    st.subheader("Missing Skills")
+                    st.write(analysis_result["missing_skills"])
+
+                    st.subheader("Weak Resume Points")
+                    st.write(analysis_result["weak_resume_points"])
+
+                st.subheader("Recommended Resume Changes")
+                st.write(analysis_result["recommended_resume_changes"])
+
+                st.subheader("Projects to Highlight")
+                st.write(analysis_result["projects_to_highlight"])
+
+                st.subheader("Keywords to Add")
+                st.write(analysis_result["keywords_to_add"])
+
+                st.subheader("Final Recommendation")
+                st.success(analysis_result["final_recommendation"])
