@@ -1,6 +1,7 @@
 import json
 import re
 from app.config import get_llm
+from app.config import get_json_llm
 
 
 def extract_json(text: str) -> dict:
@@ -22,39 +23,33 @@ def analyze_resume_job_match(
     company_name: str,
     sponsorship_result: dict
 ) -> dict:
-    llm = get_llm()
-
+    llm = get_json_llm()
     prompt = f"""
-You are CareerPilot AI, an AI career assistant for international students.
+Analyze this resume against the job description.
 
-Analyze the resume against the job description.
+Return JSON only with these exact keys:
+ats_match_score,
+match_summary,
+matching_skills,
+missing_skills,
+strong_resume_points,
+weak_resume_points,
+recommended_resume_changes,
+projects_to_highlight,
+keywords_to_add,
+final_recommendation.
 
 Company:
 {company_name}
 
-Sponsorship Analysis:
-{sponsorship_result}
+Sponsorship Result:
+{json.dumps(sponsorship_result)}
 
 Resume:
 {resume_text}
 
 Job Description:
 {job_description}
-
-Return ONLY valid JSON with this structure:
-
-{{
-  "ats_match_score": 0,
-  "match_summary": "short summary",
-  "matching_skills": [],
-  "missing_skills": [],
-  "strong_resume_points": [],
-  "weak_resume_points": [],
-  "recommended_resume_changes": [],
-  "projects_to_highlight": [],
-  "keywords_to_add": [],
-  "final_recommendation": "Apply / Apply with caution / Do not apply"
-}}
 """
 
     response = llm.invoke(prompt)
