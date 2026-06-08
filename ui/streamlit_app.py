@@ -12,6 +12,7 @@ from app.config import get_llm
 from app.parser import extract_resume_text
 from app.chains import analyze_resume_job_match
 from app.scoring import calculate_keyword_match,calculate_final_ats_score
+from app.scoring import normalize_llm_score
 
 st.set_page_config(
     page_title="CareerPilot AI",
@@ -113,15 +114,18 @@ if st.button("Analyze Job Fit"):
                     job_description=job_description,
                     extracted_skills=analysis_result.get("keywords_to_add", []) + analysis_result.get("matching_skills", [])
                 )
+                normalized_llm_score = normalize_llm_score(
+                    analysis_result.get("ats_match_score",0)
+                )
 
                 final_ats_score = calculate_final_ats_score(
-                    llm_score=analysis_result.get("ats_match_score", 0),
+                    llm_score=normalized_llm_score,
                     keyword_score=keyword_result["keyword_match_score"],
                     sponsorship_category=sponsorship_result.get("category", "")
                 )
                 st.metric(
                     label="Final ATS Match Score",
-                    value=f"{final_ats_score*10}%"
+                    value=f"{final_ats_score}%"
                 )
 
                 col_score1, col_score2 = st.columns(2)
@@ -129,7 +133,7 @@ if st.button("Analyze Job Fit"):
                 with col_score1:
                     st.metric(
                         label="LLM Resume Match Score",
-                        value=f"{analysis_result.get('ats_match_score', 0)}%"
+                        value=f"{normalized_llm_score}%"
                     )
 
                 with col_score2:
@@ -142,39 +146,3 @@ if st.button("Analyze Job Fit"):
 
                 st.subheader("Missing Keywords")
                 st.write(keyword_result["missing_keywords"])
-                
-    #             st.metric(
-    # label="ATS Match Score",
-    # value=f"{analysis_result['ats_match_score'] * 100}%"
-    # )
-
-    #             st.subheader("Match Summary")
-    #             st.write(analysis_result["match_summary"])
-
-    #             col1, col2 = st.columns(2)
-
-    #             with col1:
-    #                 st.subheader("Matching Skills")
-    #                 st.write(analysis_result["matching_skills"])
-
-    #                 st.subheader("Strong Resume Points")
-    #                 st.write(analysis_result["strong_resume_points"])
-
-    #             with col2:
-    #                 st.subheader("Missing Skills")
-    #                 st.write(analysis_result["missing_skills"])
-
-    #                 st.subheader("Weak Resume Points")
-    #                 st.write(analysis_result["weak_resume_points"])
-
-    #             st.subheader("Recommended Resume Changes")
-    #             st.write(analysis_result["recommended_resume_changes"])
-
-    #             st.subheader("Projects to Highlight")
-    #             st.write(analysis_result["projects_to_highlight"])
-
-    #             st.subheader("Keywords to Add")
-    #             st.write(analysis_result["keywords_to_add"])
-
-    #             st.subheader("Final Recommendation")
-    #             st.success(analysis_result["final_recommendation"])
