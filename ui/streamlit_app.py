@@ -16,12 +16,43 @@ from app.scoring import normalize_llm_score
 from app.generators import generate_resume_improvements
 from app.application_writer import generate_cover_letter, generate_recruiter_email
 from app.sponsorship_history import check_company_sponsorship_history
+from app.database import init_db, save_application_analysis, get_all_applications
+if "resume_text" not in st.session_state:
+    st.session_state.resume_text = ""
+
+if "company_name" not in st.session_state:
+    st.session_state.company_name = ""
+
+if "job_title" not in st.session_state:
+    st.session_state.job_title = ""
+
+if "job_description" not in st.session_state:
+    st.session_state.job_description = ""
+
+if "analysis_result" not in st.session_state:
+    st.session_state.analysis_result = None
+
+if "sponsorship_result" not in st.session_state:
+    st.session_state.sponsorship_result = None
+
+if "history_result" not in st.session_state:
+    st.session_state.history_result = None
+
+if "final_ats_score" not in st.session_state:
+    st.session_state.final_ats_score = None
+
+if "cover_letter" not in st.session_state:
+    st.session_state.cover_letter = ""
+
+if "recruiter_email" not in st.session_state:
+    st.session_state.recruiter_email = ""
 
 st.set_page_config(
     page_title="CareerPilot AI",
     page_icon="🌍",
     layout="wide"
 )
+init_db()
 
 st.title("CareerPilot AI")
 st.subheader("Agentic Career Intelligence Platform for International Students")
@@ -29,13 +60,18 @@ st.subheader("Agentic Career Intelligence Platform for International Students")
 resume_file = st.file_uploader("Upload your resume", type=["pdf", "txt"])
 company_name = st.text_input(
     "Company Name",
-    placeholder="e.g. Microsoft"
+    key="company_name"
 )
+
+# job_title = st.text_input(
+#     "Job Title",
+#     key="job_title"
+# )
 
 job_description = st.text_area(
     "Paste Job Description",
-    height=350,
-    placeholder="Copy and paste the complete job description here..."
+    height=300,
+    key="job_description"
 )
 
 if st.button("Analyze Job Fit"):
@@ -103,6 +139,7 @@ if st.button("Analyze Job Fit"):
         else:
             with st.spinner("Analyzing resume and job description with Llama 3.1..."):
                 llm = get_llm()
+                
 
                 response = llm.invoke(
                     f"""
@@ -143,6 +180,7 @@ if st.button("Analyze Job Fit"):
                 company_name=company_name,
                 sponsorship_result=sponsorship_result
                 )
+                
                 keyword_result = calculate_keyword_match(
                     resume_text=resume_text,
                     job_description=job_description,
@@ -157,9 +195,18 @@ if st.button("Analyze Job Fit"):
                     keyword_score=keyword_result["keyword_match_score"],
                     sponsorship_category=sponsorship_result.get("category", "")
                 )
+                st.session_state.resume_text = resume_text
+                st.session_state.sponsorship_result = sponsorship_result
+                st.session_state.history_result = history_result
+                st.session_state.analysis_result = analysis_result
+                st.session_state.final_ats_score = final_ats_score
                 st.metric(
                     label="Final ATS Match Score",
                     value=f"{final_ats_score}%"
+                )
+                job_title = st.text_input(
+                    "Job Title",
+                    placeholder="e.g. Machine Learning Engineer"
                 )
 
                 col_score1, col_score2 = st.columns(2)
@@ -206,27 +253,73 @@ if st.button("Analyze Job Fit"):
                 st.subheader("Priority Changes")
                 st.write(improvement_result["priority_changes"])
                 st.header("Application Materials")
+                if st.button("Save Application Analysis"):
+                    save_application_analysis(
+                        company_name=company_name,
+                        job_title=job_title,
+                        sponsorship_category=sponsorship_result.get("category", ""),
+                        h1b_history_rating=history_result.get("h1b_history_rating", ""),
+                        final_ats_score=final_ats_score,
+                        recommendation=analysis_result.get("final_recommendation", "")
+                    )
 
-                if st.button("Generate Cover Letter"):
-                    with st.spinner("Generating cover letter..."):
-                        cover_letter = generate_cover_letter(
-                            resume_text=resume_text,
-                            job_description=job_description,
-                            company_name=company_name,
-                            analysis_result=analysis_result
-                        )
+                    st.success("Application analysis saved successfully.")
 
+                if st.session_state.analysis_result:
+
+                    st.header("Application Materials")
+
+                    if st.button("Generate Cover Letter"):
+                        with st.spinner("Generating cover letter..."):
+                            st.session_state.cover_letter = generate_cover_letter(
+                                resume_text=st.session_state.resume_text,
+                                job_description=st.session_state.job_description,
+                                company_name=st.session_state.company_name,
+                                analysis_result=st.session_state.analysis_result
+                            )
+
+                    if st.session_state.cover_letter:
                         st.subheader("Cover Letter")
-                        st.text_area("Generated Cover Letter", cover_letter, height=350)
-
-                if st.button("Generate Recruiter Email"):
-                    with st.spinner("Generating recruiter email..."):
-                        recruiter_email = generate_recruiter_email(
-                            resume_text=resume_text,
-                            job_description=job_description,
-                            company_name=company_name,
-                            analysis_result=analysis_result
+                        st.text_area(
+                            "Generated Cover Letter",
+                            st.session_state.cover_letter,
+                            height=350
                         )
 
+                    if st.button("Generate Recruiter Email"):
+                        with st.spinner("Generating recruiter email..."):
+                            st.session_state.recruiter_email = generate_recruiter_email(
+                                resume_text=st.session_state.resume_text,
+                                job_description=st.session_state.job_description,
+                                company_name=st.session_state.company_name,
+                                analysis_result=st.session_state.analysis_result
+                            )
+
+                    if st.session_state.recruiter_email:
                         st.subheader("Recruiter Email")
-                        st.text_area("Generated Recruiter Email", recruiter_email, height=250)
+                        st.text_area(
+                            "Generated Recruiter Email",
+                            st.session_state.recruiter_email,
+                            height=250
+                        )
+                st.header("Saved Application Analyses")
+
+                applications = get_all_applications()
+
+                if applications:
+                    st.dataframe(
+                        applications,
+                        column_config={
+                            0: "ID",
+                            1: "Company",
+                            2: "Job Title",
+                            3: "Sponsorship Category",
+                            4: "H1B History",
+                            5: "ATS Score",
+                            6: "Recommendation",
+                            7: "Date"
+                        },
+                        use_container_width=True
+                    )
+                else:
+                    st.info("No saved applications yet.")
